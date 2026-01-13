@@ -258,7 +258,11 @@ def write_to_template_from_path(
         cell_b.number_format = "0"
 
         ws[f"C{r}"].value = (i + 1) * 10
-        ws[f"D{r}"].value = rr.article
+
+        cell_d = ws[f"D{r}"]
+        cell_d.value = int(float(rr.article))
+        cell_d.number_format = "0"
+
         ws[f"E{r}"].value = rr.description
         ws[f"F{r}"].value = po_str
         ws[f"G{r}"].value = deliv_str
