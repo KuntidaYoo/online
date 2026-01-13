@@ -24,22 +24,26 @@ def thai_be_to_yy(date_greg: dt.date) -> str:
     be_year = date_greg.year + 543
     return str(be_year % 100).zfill(2)
 
-def build_po_base(branch_code: str, po_date: dt.date) -> tuple[str, str]:
+def build_po_base(branch_code: str, po_date: dt.date) -> tuple[str, str, str]:
     """
-    Returns (base, num_no_zero)
+    Returns (base, num_no_zero, num_raw)
     base = YYMMDD + num_no_zero
+    num_raw = original number part (e.g. '905')
+    num_no_zero = number with zeros removed (e.g. '905' -> '95')
     """
     m = re.match(r"^(SPX|TT|LEX)(\d+)$", branch_code.strip().upper())
     if not m:
         raise ValueError(f"Invalid branch code: {branch_code} (e.g., SPX903, LEX905, TT905)")
 
-    num = m.group(2)
+    num_raw = m.group(2)
+
     yy = thai_be_to_yy(po_date)
     mmdd = po_date.strftime("%m%d")
 
-    num_no_zero = num.replace("0", "") or "0"
+    num_no_zero = num_raw.replace("0", "") or "0"
     base = f"{yy}{mmdd}{num_no_zero}"
-    return base, num_no_zero
+    return base, num_no_zero, num_raw
+
 
 def copy_row_style(ws: Worksheet, src_row: int, dst_row: int, max_col: int = 18) -> None:
     """Copy style from template row to new rows to preserve formatting."""
@@ -226,6 +230,7 @@ def write_to_template_from_path(
     rows: List[OutputRow],
     po_date: Optional[dt.date] = None,
     deliv_plus_days: int = 7,
+    start_suffix_map: Optional[Dict[str, int]] = None,  # NEW
 ) -> bytes:
     po_date = po_date or dt.date.today()
     po_str = force_yyyy_mm_dd(po_date)
@@ -246,8 +251,22 @@ def write_to_template_from_path(
         if rr.branch_code in po_by_branch:
             po_no = po_by_branch[rr.branch_code]
         else:
-            base, num_no_zero = build_po_base(rr.branch_code, po_date)
-            count_by_num[num_no_zero] = count_by_num.get(num_no_zero, 0) + 1
+            base, num_no_zero, num_raw = build_po_base(rr.branch_code, po_date)
+
+            # default start is 1 if user didn't provide mapping
+            start_suffix_map = start_suffix_map or {}
+
+            # Use user-defined start for THIS raw number (903/904/905).
+            # If not provided, start at 1.
+            start_value = int(start_suffix_map.get(num_raw, 1))
+
+            if num_no_zero not in count_by_num:
+                # first time we see this num_no_zero -> start at the user-defined value
+                count_by_num[num_no_zero] = start_value
+            else:
+                # subsequent times -> increment
+                count_by_num[num_no_zero] += 1
+
             suffix = str(count_by_num[num_no_zero]).zfill(2)
             po_no = base + suffix
             po_by_branch[rr.branch_code] = po_no
@@ -308,6 +327,32 @@ with col2:
 
 st.divider()
 
+st.subheader("Starting suffix per branch number (no zero removed)")
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    start_903 = st.number_input("903", min_value=1, max_value=99, value=1, step=1)
+
+with c2:
+    start_904 = st.number_input("904", min_value=1, max_value=99, value=1, step=1)
+
+with c3:
+    start_905 = st.number_input("905", min_value=1, max_value=99, value=1, step=1)
+
+# map: original branch number (not zero-removed) -> starting suffix
+start_suffix_map = {
+    "903": int(start_903),
+    "904": int(start_904),
+    "905": int(start_905),
+}
+
+st.caption(
+    "Example: if 905 = 5, then first 905 uses 05, next 905 uses 06, then 07... "
+    "903 and 904 are independent."
+)
+
+
 st.subheader("Upload platform files (optional: you can upload 1, 2, or all 3)")
 
 spx_branch = st.text_input("SPX branch code (e.g., SPX903)", value="SPX903")
@@ -353,6 +398,7 @@ if run:
             rows=rows,
             po_date=po_date,
             deliv_plus_days=int(deliv_days),
+            start_suffix_map=start_suffix_map,
         )
 
         st.download_button(
