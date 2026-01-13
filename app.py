@@ -327,7 +327,7 @@ with col2:
 
 st.divider()
 
-st.subheader("Starting suffix per branch number (no zero removed)")
+st.subheader("ลำดับเลขที่ PO")
 
 c1, c2, c3 = st.columns(3)
 
@@ -346,12 +346,6 @@ start_suffix_map = {
     "904": int(start_904),
     "905": int(start_905),
 }
-
-st.caption(
-    "Example: if 905 = 5, then first 905 uses 05, next 905 uses 06, then 07... "
-    "903 and 904 are independent."
-)
-
 
 st.subheader("Upload platform files (optional: you can upload 1, 2, or all 3)")
 
