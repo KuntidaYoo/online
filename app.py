@@ -260,7 +260,12 @@ def write_to_template_from_path(
         ws[f"C{r}"].value = (i + 1) * 10
 
         cell_d = ws[f"D{r}"]
-        cell_d.value = int(float(rr.article))
+
+        if rr.article not in (None, "", "nan"):
+            cell_d.value = int(float(rr.article))
+        else:
+            cell_d.value = None
+
         cell_d.number_format = "0"
 
         ws[f"E{r}"].value = rr.description
