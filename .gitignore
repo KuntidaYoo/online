@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+*.xlsx
+!template_output.xlsx
+output_filled*.xlsx
+.DS_Store
+Thumbs.db
